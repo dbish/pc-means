@@ -75,7 +75,7 @@ void kmeans(int n, int k){
 	new_clusters = (double **)malloc(k*sizeof(double *));	
 	cluster_membership = (int *)malloc(n*sizeof(int));
 	count = 0;
-	threshold = 10;
+	int threshold = 10;
 	percent_change = 100;
 
 	//choose first set of cluster centers
@@ -112,23 +112,27 @@ void kmeans(int n, int k){
 			}
 		
 			//track the new cluster sum
-			newClusters[cluster][0] += data[i][0];
-			newClusters[cluster][1] += data[i][1];
-			newClusters[cluster][2]++;
+			new_clusters[cluster][0] += data[i][0];
+			new_clusters[cluster][1] += data[i][1];
+			new_clusters[cluster][2]++;
 		} 
 
 		//calculate the new cluster centers and update
 		for (i = 0; i < k; i++){
-			if (newClusters[i][2] > 0){
-				newClusters[i][0] /= newClusters[i][2];
-				newClusters[i][1] /= newClusters[i][2];
+			if (new_clusters[i][2] > 0){
+				new_clusters[i][0] /= new_clusters[i][2];
+				new_clusters[i][1] /= new_clusters[i][2];
 			}
-			clusters[i][0] = newClusters[i][0];
-			clusters[i][1] = newClusters[i][1];
-			newClusters[i][0] = newClusters[i][1] = newClusters[i][2] = 0;
+			clusters[i][0] = new_clusters[i][0];
+			clusters[i][1] = new_clusters[i][1];
+			new_clusters[i][0] = new_clusters[i][1] = new_clusters[i][2] = 0;
 		}
 		percent_change /= n;
 		count++;
+	}
+
+	for (i = 0; i < n; i++){
+		printf("%d %d %d\n", data[i][0], data[i][1], cluster_membership[i]);
 	}
 	
 	
@@ -143,11 +147,13 @@ int main(int argc, char* argv[]){
 	k = strtol(argv[3], NULL, 10);
 	setup(n, max, k);
 
-	for (i = 0; i < 2; i++){
+	/*for (i = 0; i < 2; i++){
 		printf("id:%d x:%d y:%d\n", i, data[i][0], data[i][1]);  
 	}
 	printf("Distance between points 0 and 1: %f\n", distance(data[0][0], data[0][1], data[1][0], data[1][1]));
-
+	*/
+	kmeans(n, k);
+	
 	return 0;
 }
 
