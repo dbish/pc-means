@@ -68,13 +68,13 @@ int assign_cluster(double x, double y, int k, double **clusters){
 
 void kmeans(int n, int k, double **clusters, int **data){
 	int i, j, count, cluster, my_num;
-	double percent_change;
+	double percent_change, time;
 	int* cluster_membership;
 	double **new_clusters;
 	new_clusters = (double **)malloc(k*sizeof(double *));	
 	cluster_membership = (int *)malloc(n*sizeof(int));
 	count = 0;
-	int threshold = 10;
+	int threshold = 5;
 	percent_change = 100;
 
 	//thread variables
@@ -114,7 +114,8 @@ void kmeans(int n, int k, double **clusters, int **data){
 		}
 	}
 
-	while((percent_change > threshold) && (count < 100)){
+	time = omp_get_wtime();
+	while((percent_change > threshold) && (count < 1000)){
 		percent_change = 0;
 
 		#pragma omp parallel \
@@ -124,6 +125,8 @@ void kmeans(int n, int k, double **clusters, int **data){
 		
 			#pragma omp for \
 				private(i, j, cluster) \
+				firstprivate(n, k) \
+				schedule(static)\
 				reduction(+:percent_change)
 			for(i = 0; i < n; i++){
 				//find the cluster it belongs to
@@ -139,35 +142,39 @@ void kmeans(int n, int k, double **clusters, int **data){
 				local_clusters[my_num][cluster][0] += data[i][0];
 				local_clusters[my_num][cluster][1] += data[i][1];
 				local_clusters[my_num][cluster][2]++;
-			} 
-
-			//reduction on the local arrays
-			for (i = 0; i < k; i++){
-				for (j = 0; j < num_threads; j++){
-					new_clusters[i][0] += local_clusters[j][i][0];
-					new_clusters[i][1] += local_clusters[j][i][1];
-					new_clusters[i][2] += local_clusters[j][i][2];
-					local_clusters[j][i][0] = local_clusters[j][i][1] = local_clusters[j][i][2] = 0;
-				}
-			}	
-
-			//centroid calculation
-			for (i = 0; i < k; i++){
-				if (new_clusters[i][2] > 0){
-					new_clusters[i][0] /= new_clusters[i][2];
-					new_clusters[i][1] /= new_clusters[i][2];
-				}
-				clusters[i][0] = new_clusters[i][0];
-				clusters[i][1] = new_clusters[i][1];
-				new_clusters[i][0] = new_clusters[i][1] = new_clusters[i][2] = 0;
 			}
-			percent_change /= n;
-			count++;
 		}
+
+		//reduction on the local arrays
+		for (i = 0; i < k; i++){
+			for (j = 0; j < num_threads; j++){
+				new_clusters[i][0] += local_clusters[j][i][0];
+				new_clusters[i][0] = 2;
+				new_clusters[i][1] += local_clusters[j][i][1];
+				new_clusters[i][2] += local_clusters[j][i][2];
+				local_clusters[j][i][0] = local_clusters[j][i][1] = local_clusters[j][i][2] = 0;
+			}
+		}	
+
+		//centroid calculation
+		for (i = 0; i < k; i++){
+			if (new_clusters[i][2] > 0){
+				new_clusters[i][0] /= new_clusters[i][2];
+				new_clusters[i][1] /= new_clusters[i][2];
+			}
+			clusters[i][0] = new_clusters[i][0];
+			clusters[i][1] = new_clusters[i][1];
+			new_clusters[i][0] = new_clusters[i][1] = new_clusters[i][2] = 0;
+		}
+		percent_change /= n;
+		count++;
+		
 	}
 
+	time = omp_get_wtime() - time;
+	printf("time = %7.4f\n", time);
 	for (i = 0; i < n; i++){
-		printf("%d %d %d\n", data[i][0], data[i][1], cluster_membership[i]);
+		//printf("%d %d %d\n", data[i][0], data[i][1], cluster_membership[i]);
 	}
 	
 	
@@ -185,12 +192,15 @@ int main(int argc, char* argv[]){
 	clusters = (double **)malloc(k*sizeof(double *));	
         data = (int **)malloc(n*sizeof(int *));
 	setup(n, max, k, clusters, data);
-
+	int num_threads = strtol(argv[4], NULL, 10);	
+	printf("n = %d, max = %d, k = %d num threads = %d\n", n, max, k, num_threads);
 	/*for (i = 0; i < 2; i++){
 		printf("id:%d x:%d y:%d\n", i, data[i][0], data[i][1]);  
 	}
 	printf("Distance between points 0 and 1: %f\n", distance(data[0][0], data[0][1], data[1][0], data[1][1]));
 	*/
+	
+	omp_set_num_threads(num_threads);
 	kmeans(n, k, clusters, data);
 	
 	return 0;
